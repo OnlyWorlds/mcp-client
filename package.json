@@ -1,7 +1,7 @@
 {
   "name": "@onlyworlds/mcp-client",
-  "version": "1.1.1",
-  "description": "MCP client for OnlyWorlds API schema access",
+  "version": "1.1.2",
+  "description": "DEPRECATED: the OnlyWorlds MCP server is hosted at https://www.onlyworlds.com/mcp (streamable HTTP). This stdio bridge no longer forwards.",
   "main": "index.js",
   "type": "module",
   "bin": {
@@ -21,8 +21,7 @@
   "author": "OnlyWorlds",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
-    "node-fetch": "^3.3.2"
+    "@modelcontextprotocol/sdk": "^1.0.0"
   },
   "engines": {
     "node": ">=18.0.0"

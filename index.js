@@ -1,184 +1,67 @@
 #!/usr/bin/env node
+// @onlyworlds/mcp-client 1.1.2 -- FINAL RELEASE (deprecated).
+//
+// This package was a stdio bridge to the old OnlyWorlds MCP endpoint
+// (POST /mcp/messages/), which was retired when the real MCP server went
+// live at https://www.onlyworlds.com/mcp (streamable HTTP, 2026-07-12).
+// The bridge's forwards now receive only a moved-notice, so instead of
+// silently returning empty results, this final version answers every
+// request with the migration message. Connect directly instead:
+//
+//   claude mcp add --transport http onlyworlds https://www.onlyworlds.com/mcp \
+//     --header "API-Key: <your world key>" --header "API-Pin: <your pin>"
+//
+// Docs: https://onlyworlds.github.io
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { 
-  ListResourcesRequestSchema, 
+import {
+  ListResourcesRequestSchema,
   ReadResourceRequestSchema,
   ListToolsRequestSchema,
   CallToolRequestSchema
 } from '@modelcontextprotocol/sdk/types.js';
-import fetch from 'node-fetch';
 
-const API_BASE = process.env.ONLYWORLDS_API_URL || 'https://www.onlyworlds.com';
-const API_KEY = process.env.ONLYWORLDS_API_KEY;
-const API_PIN = process.env.ONLYWORLDS_API_PIN;
+const MOVED =
+  'The OnlyWorlds MCP server is now hosted at https://www.onlyworlds.com/mcp ' +
+  '(streamable HTTP). This stdio bridge (@onlyworlds/mcp-client) is deprecated ' +
+  'and no longer forwards requests. Connect directly: ' +
+  'claude mcp add --transport http onlyworlds https://www.onlyworlds.com/mcp ' +
+  '--header "API-Key: <your world key>" --header "API-Pin: <your pin>". ' +
+  'Claude Desktop and other streamable-HTTP clients can use the same URL and ' +
+  'headers; stdio-only clients can use the community mcp-remote shim. ' +
+  'Docs: https://onlyworlds.github.io';
 
-// Create MCP server with both resources and tools capabilities
-const server = new Server({
-  name: 'onlyworlds',
-  version: '1.1.0'
-}, {
-  capabilities: {
-    resources: {},
-    tools: {}
-  }
-});
+console.error('[onlyworlds] ' + MOVED);
 
-// Forward resources/list to HTTP endpoint
-server.setRequestHandler(ListResourcesRequestSchema, async () => {
-  try {
-    const response = await fetch(`${API_BASE}/mcp/messages/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': API_KEY || '',
-        'X-API-Pin': API_PIN || ''
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'resources/list',
-        id: 1
-      })
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    return data.result || { resources: [] };
-  } catch (error) {
-    console.error('Error listing resources:', error);
-    return { resources: [] };
-  }
-});
+const server = new Server(
+  { name: 'onlyworlds', version: '1.1.2' },
+  { capabilities: { resources: {}, tools: {} } }
+);
 
-// Forward resources/read to HTTP endpoint
-server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-  try {
-    const response = await fetch(`${API_BASE}/mcp/messages/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': API_KEY || '',
-        'X-API-Pin': API_PIN || ''
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'resources/read',
-        params: request.params,
-        id: 2
-      })
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    if (data.error) {
-      throw new Error(data.error.message);
-    }
-    
-    return data.result || { contents: [] };
-  } catch (error) {
-    console.error('Error reading resource:', error);
-    throw error;
-  }
-});
+server.setRequestHandler(ListResourcesRequestSchema, async () => ({
+  resources: [{
+    uri: 'onlyworlds://moved',
+    name: 'OnlyWorlds MCP has moved',
+    description: MOVED,
+    mimeType: 'text/plain'
+  }]
+}));
 
-// Forward tools/list to HTTP endpoint
-server.setRequestHandler(ListToolsRequestSchema, async () => {
-  try {
-    const response = await fetch(`${API_BASE}/mcp/messages/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': API_KEY || '',
-        'X-API-Pin': API_PIN || ''
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'tools/list',
-        id: 3
-      })
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    if (data.error) {
-      console.error('Error from server:', data.error);
-      return { tools: [] };
-    }
-    
-    return data.result || { tools: [] };
-  } catch (error) {
-    console.error('Error listing tools:', error);
-    return { tools: [] };
-  }
-});
+server.setRequestHandler(ReadResourceRequestSchema, async (request) => ({
+  contents: [{ uri: request.params?.uri || 'onlyworlds://moved', mimeType: 'text/plain', text: MOVED }]
+}));
 
-// Forward tools/call to HTTP endpoint
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  try {
-    const response = await fetch(`${API_BASE}/mcp/messages/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': API_KEY || '',
-        'X-API-Pin': API_PIN || ''
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'tools/call',
-        params: request.params,
-        id: 4
-      })
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    if (data.error) {
-      // Return error in the expected format
-      return {
-        content: [{
-          type: 'text',
-          text: `Error: ${data.error.message}`
-        }],
-        isError: true
-      };
-    }
-    
-    return data.result || {
-      content: [{
-        type: 'text',
-        text: 'No result returned'
-      }]
-    };
-  } catch (error) {
-    console.error('Error calling tool:', error);
-    return {
-      content: [{
-        type: 'text',
-        text: `Error calling tool: ${error.message}`
-      }],
-      isError: true
-    };
-  }
-});
+server.setRequestHandler(ListToolsRequestSchema, async () => ({
+  tools: [{
+    name: 'onlyworlds_moved',
+    description: MOVED,
+    inputSchema: { type: 'object', properties: {} }
+  }]
+}));
 
-// Note about authentication (optional for schema access)
-if (!API_KEY || !API_PIN) {
-  // Silent - authentication not required for schema access
-  // API key/PIN only needed if accessing user-specific world data
-}
+server.setRequestHandler(CallToolRequestSchema, async () => ({
+  content: [{ type: 'text', text: MOVED }]
+}));
 
-// Start stdio transport
 const transport = new StdioServerTransport();
 await server.connect(transport);
